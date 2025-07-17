@@ -1,0 +1,61 @@
+name: Underwater ROV CI Pipeline
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MYSQL_ROOT_PASSWORD: rootpwd
+          MYSQL_DATABASE: rov
+          MYSQL_USER: rovuser
+          MYSQL_PASSWORD: rovpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -prootpwd"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: |
+          cd api
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          cd ..
+
+      - name: Start Docker Compose services
+        run: |
+          docker-compose -f docker-compose.yml up -d --build
+          sleep 15
+
+      - name: Check DB health
+        run: |
+          docker exec $(docker ps -qf "ancestor=mariadb:11") mysqladmin ping -prootpwd
+
+      - name: Run FastAPI integration tests
+        run: |
+          cd api
+          pytest tests/
+
+      - name: Tear down services
+        if: always()
+        run: docker-compose -f docker-compose.yml down
+

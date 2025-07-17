@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  sitl-ardusub:
+    build:
+      context: .
+      dockerfile: Dockerfile.sitl
+    container_name: sitl_ardusub
+    ports:
+      - "14550:14550/udp"
+      - "5760:5760"
+    tty: true
+    stdin_open: true
+    command: >
+      bash -c "cd ArduSub && Tools/autotest/sim_vehicle.py -v ArduSub -f vectored --console --map --out=udp:0.0.0.0:14550"
+
+

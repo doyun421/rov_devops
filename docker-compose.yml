@@ -1,0 +1,69 @@
+version: '3.9'
+
+services:
+  mariadb:
+    image: mariadb:11
+    container_name: rov_mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpwd
+      MYSQL_DATABASE: rov
+      MYSQL_USER: rovuser
+      MYSQL_PASSWORD: rovpass
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - rov_net
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: rov_mqtt
+    restart: always
+    volumes:
+      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    ports:
+      - "1883:1883"
+    networks:
+      - rov_net
+
+  bridge:
+    build:
+      context: ./bridge
+    container_name: rov_bridge
+    restart: always
+    depends_on:
+      - mqtt
+      - mariadb
+    environment:
+      - MQTT_BROKER=rov_mqtt
+      - DB_HOST=rov_mariadb
+      - DB_USER=rovuser
+      - DB_PASS=rovpass
+    networks:
+      - rov_net
+
+  api:
+    build:
+      context: ./api
+    container_name: rov_api
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mariadb
+    environment:
+      - DB_HOST=rov_mariadb
+      - DB_USER=rovuser
+      - DB_PASS=rovpass
+    networks:
+      - rov_net
+
+volumes:
+  mariadb_data:
+
+networks:
+  rov_net:
+    driver: bridge
+
